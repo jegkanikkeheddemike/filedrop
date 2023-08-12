@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=File Drop
+GenericName=Upload files to your friends
+Exec=filedrop %F
+Terminal=false
+Type=Application
+X-GNOME-Autostart-enabled=false

@@ -6,3 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+egui = "*"
+eframe = "*"
+reqwest = {version = "*",features = ["multipart"]}
+tinyfiledialogs = "3.0"
+tokio = {version = "*", features = ["full"]}
+anyhow = "*"
+pinboard = "2.2.0"
