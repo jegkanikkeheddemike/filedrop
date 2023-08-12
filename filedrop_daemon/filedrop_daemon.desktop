@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=FileDrop daemon
+GenericName=Daemon that notifies on file upload
+Exec=filedrop_daemon
+Terminal=false
+Type=Application
+X-GNOME-Autostart-enabled=true
