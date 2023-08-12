@@ -35,7 +35,8 @@ async fn handle_message(data: &str) -> Result<()> {
             reqwest::get(format!("{}download/{}", REMOTE_ADDR.deref(), data.file_id)).await?;
         let mut filepath = dirs::download_dir().expect("unsupported os");
         filepath.push(data.filename);
-        fs::write(filepath, response.bytes().await?).await?;
+        fs::write(&filepath, response.bytes().await?).await?;
+        println!("{:?}", open::that(filepath));
     }
 
     Ok(())
