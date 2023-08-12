@@ -1,0 +1,3 @@
+[workspace]
+members = ["filedrop", "filedrop_server", "filedrop_lib", "filedrop_daemon"]
+resolver = "2"

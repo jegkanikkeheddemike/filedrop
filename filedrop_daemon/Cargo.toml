@@ -1,0 +1,17 @@
+[package]
+name = "filedrop_daemon"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde_json = "*"
+sse-client = "*"
+filedrop_lib = { path = "../filedrop_lib" }
+notify-rust = "*"
+tokio = { version = "*", features = ["full"] }
+anyhow = "*"
+reqwest = "*"
+once_cell = "*"
+dirs = "*"
