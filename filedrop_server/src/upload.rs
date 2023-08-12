@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use axum::extract::{Multipart, State};
 use filedrop_lib::EventData;
 use tokio::fs;
@@ -31,5 +33,14 @@ pub async fn upload(State(state): State<ServerState>, mut multipart: Multipart) 
         if let Err(err) = state.event_send.send(event_data).await {
             println!("Failed to send event: {err:?}");
         }
+
+        tokio::spawn(remove_old(file_id));
     }
+}
+
+async fn remove_old(file_id: Uuid) {
+    tokio::time::sleep(Duration::from_secs(3600)).await;
+    fs::remove_file(format!("./cache/{file_id}"))
+        .await
+        .expect("Failed to remove 1 hour old file");
 }
