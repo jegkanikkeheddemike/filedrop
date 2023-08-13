@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/upload", post(upload::upload))
         .route("/subscribe", get(subscribe::subscribe))
-        .route("/get/:user_id", get(users::get_user))
+        .route("/get_md/:user_id", get(users::get_user))
         .nest_service("/download/", ServeDir::new("cache"))
         .with_state(state);
 
