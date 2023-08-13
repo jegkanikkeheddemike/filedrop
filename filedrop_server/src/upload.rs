@@ -15,9 +15,12 @@ pub async fn upload(State(state): State<ServerState>, mut multipart: Multipart) 
         };
         let filename = filename.split('/').last().unwrap().to_string();
 
-        let Ok(bytes) = field.bytes().await else {
-            println!("Failed to read bytes of {filename}");
-            continue;
+        let bytes = match field.bytes().await {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                println!("Failed to read bytes of {filename}. Err: {err}");
+                continue;
+            }
         };
 
         let file_id = Uuid::new_v4();
