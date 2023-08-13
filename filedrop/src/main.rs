@@ -1,15 +1,16 @@
 use anyhow::{Ok, Result};
 use eframe::{CreationContext, NativeOptions};
-use egui::{Button, CentralPanel, ComboBox, TextEdit};
-use filedrop_lib::Group;
+use egui::{Button, CentralPanel, ComboBox, Context, TextEdit};
+use filedrop_lib::{CreateGroupForm, Group, JoinGroupForm};
 use localdata::get_localdata;
 use pinboard::Pinboard;
 use reqwest::{
     multipart::{Form, Part},
     StatusCode,
 };
-use std::{env::args, fmt::Display, sync::Arc};
+use std::{env::args, fmt::Display, str::FromStr, sync::Arc};
 use tinyfiledialogs::open_file_dialog;
+use uuid::Uuid;
 
 mod localdata;
 
@@ -99,6 +100,7 @@ impl eframe::App for Application {
                             filename.clone(),
                             self.status.clone(),
                             groups[self.selected_group].clone(),
+                            ui.ctx().clone(),
                         ));
                         self.status.set(FileStatus::Sending);
                     }
@@ -112,6 +114,13 @@ impl eframe::App for Application {
 
                         if ui.button("Create").clicked() {
                             //Create group
+                            tokio::spawn(create_group(
+                                self.create_group_input.clone(),
+                                filename.clone(),
+                                self.status.clone(),
+                                self.groups.clone(),
+                            ));
+                            self.create_group_input.clear();
                         }
                     });
 
@@ -123,6 +132,13 @@ impl eframe::App for Application {
                         );
                         if ui.button("Join").clicked() {
                             //Join group
+                            tokio::spawn(join_group(
+                                self.join_group_input.clone(),
+                                filename,
+                                self.status.clone(),
+                                self.groups.clone(),
+                            ));
+                            self.join_group_input.clear();
                         }
                     });
                 });
@@ -143,10 +159,8 @@ impl eframe::App for Application {
                 ui.vertical_centered(|ui| {
                     ui.heading("Failed");
                     let button = ui.add_sized((100., 40.), Button::new("retry"));
-                    let group = self.groups.read().unwrap()[self.selected_group].clone();
                     if button.clicked() {
-                        tokio::spawn(upload_file(filename.clone(), self.status.clone(), group));
-                        self.status.set(FileStatus::Sending);
+                        self.status.set(FileStatus::Selected(filename));
                     }
                     ui.label(error);
                 });
@@ -185,7 +199,12 @@ impl eframe::App for Application {
     }
 }
 
-async fn upload_file(filename: String, board: Arc<Pinboard<FileStatus>>, group: Group) {
+async fn upload_file(
+    filename: String,
+    board: Arc<Pinboard<FileStatus>>,
+    group: Group,
+    ctx: Context,
+) {
     async fn inner(filename: String, group: Group) -> Result<()> {
         let bytes = std::fs::read(&filename)?;
 
@@ -201,6 +220,7 @@ async fn upload_file(filename: String, board: Arc<Pinboard<FileStatus>>, group: 
             .multipart(parts)
             .send()
             .await?;
+
         if response.status().is_success() {
             Ok(())
         } else {
@@ -215,6 +235,7 @@ async fn upload_file(filename: String, board: Arc<Pinboard<FileStatus>>, group: 
     } else {
         board.set(FileStatus::Success)
     }
+    ctx.request_repaint();
 }
 
 #[derive(Debug)]
@@ -257,5 +278,61 @@ async fn load_md(
     }
     if let Err(err) = load_inner(file.clone(), &board, groups).await {
         board.set(FileStatus::FailedMd(file, err.to_string()))
+    }
+}
+
+async fn create_group(
+    name: String,
+    file: String,
+    board: Arc<Pinboard<FileStatus>>,
+    groups: Arc<Pinboard<Vec<Group>>>,
+) {
+    let form = CreateGroupForm {
+        user_id: get_localdata().user_id,
+        name,
+    };
+
+    board.set(FileStatus::LoadingMd);
+    let res = reqwest::Client::new()
+        .post("http://koebstoffer.info:3987/create")
+        .header("Content-Type", "application/json")
+        .body(serde_json::to_string(&form).unwrap())
+        .send()
+        .await;
+    dbg!(&res);
+    if let Err(err) = res {
+        board.set(FileStatus::Failed(file, err.to_string()))
+    } else {
+        load_md(Some(file), board, groups).await;
+    }
+}
+
+async fn join_group(
+    raw_id: String,
+    file: String,
+    board: Arc<Pinboard<FileStatus>>,
+    groups: Arc<Pinboard<Vec<Group>>>,
+) {
+    let Result::Ok(group_id) = Uuid::from_str(&raw_id) else {
+        board.set(FileStatus::Failed(file, "Failed to parse group id".into()));
+        return;
+    };
+
+    let form = JoinGroupForm {
+        user_id: get_localdata().user_id,
+        group_id,
+    };
+    board.set(FileStatus::LoadingMd);
+
+    if let Err(err) = reqwest::Client::new()
+        .post("http://koebstoffer.info:3987/join")
+        .header("Content-Type", "application/json")
+        .body(serde_json::to_string(&form).unwrap())
+        .send()
+        .await
+    {
+        board.set(FileStatus::Failed(file, err.to_string()))
+    } else {
+        load_md(Some(file), board, groups).await;
     }
 }
