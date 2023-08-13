@@ -13,3 +13,5 @@ tower-http = { version = "0.4.3", features = ["fs"] }
 futures = "0.3.28"
 uuid = { version = "*", features = ["v4"] }
 filedrop_lib = { path = "../filedrop_lib" }
+sqlx = { version = "0.7", features = [ "runtime-tokio", "tls-rustls", "postgres"] }
+dotenv = "*"

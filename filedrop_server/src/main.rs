@@ -11,8 +11,10 @@ use futures::channel::mpsc::Sender;
 use tokio::sync::mpsc::channel;
 use tower_http::services::ServeDir;
 
+mod db;
 mod subscribe;
 mod upload;
+mod users;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -25,6 +27,8 @@ async fn main() -> Result<()> {
         fs::create_dir("./cache").await?;
     }
 
+    db::init().await;
+
     let (event_send, event_recieve) = channel::<EventData>(1024);
     let (sub_send, subscriber_recv) = channel::<Sender<Result<Event, Infallible>>>(1024);
 
@@ -36,6 +40,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/upload", post(upload::upload))
         .route("/subscribe", get(subscribe::subscribe))
+        .route("/get/:user_id", get(users::get_user))
         .nest_service("/download/", ServeDir::new("cache"))
         .with_state(state);
 

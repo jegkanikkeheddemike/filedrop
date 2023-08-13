@@ -1,6 +1,7 @@
 use anyhow::{Ok, Result};
 use eframe::{CreationContext, NativeOptions};
 use egui::{Button, CentralPanel};
+use filedrop_lib::Group;
 use pinboard::Pinboard;
 use reqwest::{
     multipart::{Form, Part},
@@ -8,6 +9,8 @@ use reqwest::{
 };
 use std::{env::args, fmt::Display, sync::Arc};
 use tinyfiledialogs::open_file_dialog;
+
+mod localdata;
 
 #[tokio::main]
 async fn main() {
@@ -28,6 +31,7 @@ async fn main() {
 
 struct Application {
     status: Arc<Pinboard<FileStatus>>,
+    groups: Arc<Pinboard<Vec<Group>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -37,16 +41,16 @@ enum FileStatus {
     Sending,
     Success,
     Failed(String, String),
+    LoadingMd,
+    FailedMd(Option<String>, String),
 }
 
 impl Application {
     fn new(_cc: &CreationContext<'_>, file: Option<String>) -> Self {
-        Self {
-            status: Arc::new(Pinboard::new(
-                file.map(FileStatus::Selected)
-                    .unwrap_or(FileStatus::Unselected),
-            )),
-        }
+        let status = Arc::new(Pinboard::new(FileStatus::LoadingMd));
+        let groups = Arc::new(Pinboard::new(vec![]));
+        tokio::spawn(load_md(file, status.clone(), groups.clone()));
+        Self { status, groups }
     }
 }
 
@@ -105,6 +109,21 @@ impl eframe::App for Application {
                     }
                 });
             }
+            FileStatus::LoadingMd => {
+                ui.vertical_centered(|ui| {
+                    ui.heading(format!("Loading meta"));
+                });
+            }
+            FileStatus::FailedMd(filename, error) => {
+                ui.heading("Failed loading meta");
+                let button = ui.add_sized((100., 40.), Button::new("retry"));
+
+                if button.clicked() {
+                    tokio::spawn(load_md(filename, self.status.clone(), self.groups.clone()));
+                    self.status.set(FileStatus::Sending);
+                }
+                ui.label(error);
+            }
         });
     }
 }
@@ -146,3 +165,34 @@ impl Display for ResponseError {
     }
 }
 impl std::error::Error for ResponseError {}
+
+async fn load_md(
+    file: Option<String>,
+    board: Arc<Pinboard<FileStatus>>,
+    groups: Arc<Pinboard<Vec<Group>>>,
+) {
+    async fn load_inner(
+        file: Option<String>,
+        board: &Pinboard<FileStatus>,
+        group_board: Arc<Pinboard<Vec<Group>>>,
+    ) -> Result<()> {
+        let localdata = localdata::get_localdata();
+        let resp = reqwest::get(format!(
+            "http://koebstoffer.info:3987/get_md/{}",
+            localdata.user_id
+        ))
+        .await?;
+        let groups: Vec<Group> = serde_json::from_str(&resp.text().await?)?;
+        group_board.set(groups);
+        if let Some(file) = file {
+            board.set(FileStatus::Selected(file));
+        } else {
+            board.set(FileStatus::Unselected);
+        }
+
+        Ok(())
+    }
+    if let Err(err) = load_inner(file.clone(), &board, groups).await {
+        board.set(FileStatus::FailedMd(file, err.to_string()))
+    }
+}

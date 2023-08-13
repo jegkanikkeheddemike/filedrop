@@ -7,3 +7,9 @@ pub struct EventData {
     pub group: String,
     pub sender: String,
 }
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct Group {
+    pub name: String,
+    pub id: Uuid,
+}

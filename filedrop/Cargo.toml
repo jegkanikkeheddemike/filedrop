@@ -13,3 +13,8 @@ tinyfiledialogs = "3.0"
 tokio = {version = "*", features = ["full"]}
 anyhow = "*"
 pinboard = "2.2.0"
+uuid = {version = "*", features = ["v4","serde"]}
+serde ={ version = "*", features = ["derive"]}
+dirs = "*"
+serde_json = "*"
+filedrop_lib = { path = "../filedrop_lib" }
