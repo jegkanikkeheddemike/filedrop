@@ -32,6 +32,21 @@ pub async fn get_user(Path(user_id): Path<String>) -> Json<Vec<Group>> {
 }
 
 pub async fn join_group(Json(form): Json<JoinGroupForm>) -> StatusCode {
+    //Check if already exists
+    if sqlx::query!(
+        "select user_id from group_members where group_id = $2 and user_id = $1",
+        &form.group_id.to_string(),
+        &form.user_id.to_string()
+    )
+    .fetch_optional(db::get())
+    .await
+    .unwrap()
+    .is_some()
+    {
+        //The member already exists. Dont make a duplicate
+        return StatusCode::CONFLICT;
+    }
+
     sqlx::query!(
         "insert into group_members (group_id, user_id) values ($1,$2)",
         &form.group_id.to_string(),

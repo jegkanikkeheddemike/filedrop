@@ -78,32 +78,47 @@ impl eframe::App for Application {
 
                     let groups = self.groups.read().unwrap();
                     ui.add_space(10.);
-                    ComboBox::from_label("Group").show_index(
-                        ui,
-                        &mut self.selected_group,
-                        groups.len(),
-                        |i| &groups[i].name,
-                    );
-                    ui.add_space(10.);
-                    ui.label("username");
-                    let input = ui.text_edit_singleline(&mut self.username_input);
-                    if input.changed() {
-                        localdata::set_username(self.username_input.clone());
+                    if !groups.is_empty() {
+                        ComboBox::from_label("Group").show_index(
+                            ui,
+                            &mut self.selected_group,
+                            groups.len(),
+                            |i| &groups[i].name,
+                        );
+                        if ui
+                            .button(format!("join id: {}", groups[self.selected_group].id))
+                            .on_hover_text("Click to copy")
+                            .clicked()
+                        {
+                            ui.output_mut(|o| {
+                                o.copied_text = groups[self.selected_group].id.to_string()
+                            });
+                        }
+
+                        ui.add_space(10.);
+                        ui.label("username");
+                        let input = ui.text_edit_singleline(&mut self.username_input);
+                        if input.changed() {
+                            localdata::set_username(self.username_input.clone());
+                        }
+
+                        ui.add_space(10.);
+
+                        let button = ui.add_sized((100., 40.), Button::new("upload"));
+
+                        if button.clicked() {
+                            tokio::spawn(upload_file(
+                                filename.clone(),
+                                self.status.clone(),
+                                groups[self.selected_group].clone(),
+                                ui.ctx().clone(),
+                            ));
+                            self.status.set(FileStatus::Sending);
+                        }
+                    } else {
+                        ui.label("Please join or create a group before sending files.");
                     }
 
-                    ui.add_space(10.);
-
-                    let button = ui.add_sized((100., 40.), Button::new("upload"));
-
-                    if button.clicked() {
-                        tokio::spawn(upload_file(
-                            filename.clone(),
-                            self.status.clone(),
-                            groups[self.selected_group].clone(),
-                            ui.ctx().clone(),
-                        ));
-                        self.status.set(FileStatus::Sending);
-                    }
                     ui.add_space(30.);
                     ui.heading("Create group");
                     ui.horizontal(|ui| {
