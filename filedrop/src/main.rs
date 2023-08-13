@@ -1,8 +1,10 @@
 use anyhow::{Ok, Result};
 use eframe::{CreationContext, NativeOptions};
 use egui::{Button, CentralPanel, ComboBox, Context, TextEdit};
-use filedrop_lib::{CreateGroupForm, Group, JoinGroupForm};
-use localdata::get_localdata;
+use filedrop_lib::{
+    localdata::{get_localdata, set_username},
+    CreateGroupForm, Group, JoinGroupForm,
+};
 use pinboard::Pinboard;
 use reqwest::{
     multipart::{Form, Part},
@@ -11,8 +13,6 @@ use reqwest::{
 use std::{env::args, fmt::Display, str::FromStr, sync::Arc};
 use tinyfiledialogs::open_file_dialog;
 use uuid::Uuid;
-
-mod localdata;
 
 #[tokio::main]
 async fn main() {
@@ -104,7 +104,7 @@ impl eframe::App for Application {
                         ui.label("username");
                         let input = ui.text_edit_singleline(&mut self.username_input);
                         if input.changed() {
-                            localdata::set_username(self.username_input.clone());
+                            set_username(self.username_input.clone());
                         }
 
                         ui.add_space(10.);
@@ -235,7 +235,7 @@ async fn upload_file(
     async fn inner(filename: String, group: Group) -> Result<()> {
         let bytes = std::fs::read(&filename)?;
 
-        let localdata = localdata::get_localdata();
+        let localdata = get_localdata();
 
         let parts = Form::new()
             .part("group_id", Part::text(group.id.to_string()))
@@ -288,7 +288,7 @@ async fn load_md(
         board: &Pinboard<FileStatus>,
         group_board: Arc<Pinboard<Vec<Group>>>,
     ) -> Result<()> {
-        let localdata = localdata::get_localdata();
+        let localdata = get_localdata();
         let resp = reqwest::get(format!(
             "http://koebstoffer.info:3987/get_md/{}",
             localdata.user_id

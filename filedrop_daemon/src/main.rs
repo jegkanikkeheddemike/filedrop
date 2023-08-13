@@ -1,7 +1,7 @@
 use std::{env, ops::Deref};
 
 use anyhow::{Ok, Result};
-use filedrop_lib::EventData;
+use filedrop_lib::{localdata::get_localdata, EventData};
 use notifier::ask_download;
 use notify_rust::Notification;
 use once_cell::sync::Lazy;
@@ -15,7 +15,11 @@ static REMOTE_ADDR: Lazy<String> = Lazy::new(|| {
 
 #[tokio::main]
 async fn main() {
-    let source = format!("{}subscribe", REMOTE_ADDR.deref());
+    let source = format!(
+        "{}subscribe/{}",
+        REMOTE_ADDR.deref(),
+        get_localdata().user_id
+    );
     println!("Source: {source}");
     let event_source = EventSource::new(&source).unwrap();
 
