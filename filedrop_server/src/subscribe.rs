@@ -1,4 +1,4 @@
-use std::{collections::HashMap, convert::Infallible, time::Duration, vec};
+use std::{collections::HashMap, convert::Infallible, str::FromStr, time::Duration};
 
 use axum::{
     extract::{Path, State},
@@ -9,7 +9,7 @@ use futures::{channel::mpsc::Sender, Stream};
 use tokio::sync::mpsc::Receiver;
 use uuid::Uuid;
 
-use crate::ServerState;
+use crate::{db, ServerState};
 
 pub async fn subscribe(
     State(state): State<ServerState>,
@@ -65,14 +65,31 @@ pub async fn event_respond(
         while let Ok((sub, user_id)) = sub_rx.try_recv() {
             subcribers.insert(user_id, sub);
         }
-        let mut failed = vec![];
-        for (user_id, sub) in &mut subcribers {
-            if sub.start_send(Ok(sse_event.clone())).is_err() {
-                failed.push(*user_id);
+
+        //Get recievers
+        let users: Vec<Uuid> = match sqlx::query!(
+            "select user_id from group_members where group_id = $1",
+            &event.group_id.to_string()
+        )
+        .fetch_all(db::get())
+        .await
+        {
+            Ok(users) => users
+                .into_iter()
+                .filter_map(|u| Uuid::from_str(&u.user_id).ok())
+                .collect(),
+            Err(error) => {
+                println!("Failed fetching group users. Ignoring event. {error}");
+                continue;
             }
-        }
-        for user_id in failed {
-            subcribers.remove(&user_id);
+        };
+
+        for user_id in users {
+            if let Some(sub) = subcribers.get_mut(&user_id) {
+                if sub.start_send(Ok(sse_event.clone())).is_err() {
+                    subcribers.remove(&user_id);
+                }
+            }
         }
     }
 }
