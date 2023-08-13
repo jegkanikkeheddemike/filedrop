@@ -11,6 +11,8 @@ pub async fn upload(State(state): State<ServerState>, mut multipart: Multipart) 
     let mut group_id = None;
     let mut sender = None;
     while let Ok(Some(field)) = multipart.next_field().await {
+        // Det her er en ret slem implementering af det.
+        // Det kommer til at panic'e hvis group_id og sender ikke er givet
         if field.name() == Some("group_id") {
             group_id = Uuid::from_str(&field.text().await.unwrap()).ok();
             continue;

@@ -1,6 +1,6 @@
 use uuid::Uuid;
 pub mod localdata;
-#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone, Default)]
 pub struct EventData {
     pub filename: String,
     pub file_id: Uuid,

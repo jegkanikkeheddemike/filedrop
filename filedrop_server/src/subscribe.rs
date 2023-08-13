@@ -39,10 +39,7 @@ pub async fn event_respond(
             event_sx
                 .send(EventData {
                     filename: "//PING".into(),
-                    file_id: Uuid::from_u128(0),
-                    groupname: "".into(),
-                    group_id: Uuid::from_u128(0),
-                    sender: "".into(),
+                    ..Default::default()
                 })
                 .await
                 .unwrap();
@@ -86,7 +83,7 @@ pub async fn event_respond(
                 if let Some(sub) = subcribers.get_mut(&user_id) {
                     if sub.start_send(Ok(sse_event.clone())).is_err() {
                         subcribers.remove(&user_id);
-                        
+
                         #[cfg(debug_assertions)]
                         println!("Removed {user_id}");
                     }
