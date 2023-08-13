@@ -8,5 +8,6 @@ sudo cp ./target/release/filedrop /usr/bin/
 #fi
 mkdir -p ~/.config/autostart
 cp ./filedrop_daemon/filedrop_daemon.desktop ~/.config/autostart/
+filedrop_daemon &
 
 sudo cp ./filedrop/filedrop.desktop /usr/share/applications/

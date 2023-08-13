@@ -13,6 +13,7 @@ pub async fn upload(State(state): State<ServerState>, mut multipart: Multipart) 
         let Some(filename) = field.file_name().map(ToOwned::to_owned) else {
             continue;
         };
+        let filename = filename.split('/').last().unwrap().to_string();
 
         let Ok(bytes) = field.bytes().await else {
             println!("Failed to read bytes of {filename}");
