@@ -42,7 +42,10 @@ async fn main() -> Result<()> {
         .route("/upload", post(upload::upload))
         .route("/subscribe", get(subscribe::subscribe))
         .route("/get_md/:user_id", get(users::get_user))
+        .route("/create", post(users::create_group))
+        .route("/join", post(users::join_group))
         .nest_service("/download/", ServeDir::new("cache"))
+
         .layer(DefaultBodyLimit::max(1_000_000_000)) // 1gb
         .with_state(state);
 

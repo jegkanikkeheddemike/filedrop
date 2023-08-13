@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use axum::{extract::Path, Json};
-use filedrop_lib::Group;
+use axum::{extract::Path, http::StatusCode, Json};
+use filedrop_lib::{CreateGroupForm, Group, JoinGroupForm};
 use uuid::Uuid;
 
 use crate::db;
@@ -29,4 +29,40 @@ pub async fn get_user(Path(user_id): Path<String>) -> Json<Vec<Group>> {
         })
         .collect();
     Json(groups)
+}
+
+pub async fn join_group(Json(form): Json<JoinGroupForm>) -> StatusCode {
+    sqlx::query!(
+        "insert into group_members (group_id, user_id) values ($1,$2)",
+        &form.group_id.to_string(),
+        &form.user_id.to_string()
+    )
+    .execute(db::get())
+    .await
+    .unwrap();
+
+    StatusCode::OK
+}
+
+pub async fn create_group(Json(form): Json<CreateGroupForm>) -> StatusCode {
+    let group_id = Uuid::new_v4();
+    sqlx::query!(
+        "insert into groups (name, id) values ($1,$2)",
+        &form.name,
+        &group_id.to_string()
+    )
+    .execute(db::get())
+    .await
+    .unwrap();
+
+    sqlx::query!(
+        "insert into group_members (group_id, user_id) values ($1,$2)",
+        &group_id.to_string(),
+        &form.user_id.to_string()
+    )
+    .execute(db::get())
+    .await
+    .unwrap();
+
+    StatusCode::OK
 }

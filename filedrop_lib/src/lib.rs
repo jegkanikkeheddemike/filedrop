@@ -14,3 +14,13 @@ pub struct Group {
     pub name: String,
     pub id: Uuid,
 }
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct CreateGroupForm {
+    pub user_id: Uuid,
+    pub name: String,
+}
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct JoinGroupForm {
+    pub user_id: Uuid,
+    pub group_id: Uuid,
+}

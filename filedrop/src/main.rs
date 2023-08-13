@@ -1,7 +1,8 @@
 use anyhow::{Ok, Result};
 use eframe::{CreationContext, NativeOptions};
-use egui::{Button, CentralPanel, ComboBox};
+use egui::{Button, CentralPanel, ComboBox, TextEdit};
 use filedrop_lib::Group;
+use localdata::get_localdata;
 use pinboard::Pinboard;
 use reqwest::{
     multipart::{Form, Part},
@@ -17,8 +18,9 @@ async fn main() {
     let file = args().nth(1);
 
     let native_options = NativeOptions {
-        initial_window_size: Some((1080. / 5., 1500. / 5.).into()),
+        initial_window_size: Some((250., 300.).into()),
         initial_window_pos: Some((1920., 1080. / 2.).into()), //Virker ikke?
+        resizable: false,
         ..Default::default()
     };
     eframe::run_native(
@@ -33,6 +35,9 @@ struct Application {
     status: Arc<Pinboard<FileStatus>>,
     groups: Arc<Pinboard<Vec<Group>>>,
     selected_group: usize,
+    username_input: String,
+    create_group_input: String,
+    join_group_input: String,
 }
 
 #[derive(Debug, Clone)]
@@ -55,6 +60,9 @@ impl Application {
             status,
             groups,
             selected_group: 0,
+            username_input: get_localdata().username,
+            create_group_input: String::new(),
+            join_group_input: String::new(),
         }
     }
 }
@@ -76,6 +84,13 @@ impl eframe::App for Application {
                         |i| &groups[i].name,
                     );
                     ui.add_space(10.);
+                    ui.label("username");
+                    let input = ui.text_edit_singleline(&mut self.username_input);
+                    if input.changed() {
+                        localdata::set_username(self.username_input.clone());
+                    }
+
+                    ui.add_space(10.);
 
                     let button = ui.add_sized((100., 40.), Button::new("upload"));
 
@@ -87,6 +102,29 @@ impl eframe::App for Application {
                         ));
                         self.status.set(FileStatus::Sending);
                     }
+                    ui.add_space(30.);
+                    ui.heading("Create group");
+                    ui.horizontal(|ui| {
+                        ui.add_sized(
+                            (200., 20.),
+                            TextEdit::singleline(&mut self.create_group_input),
+                        );
+
+                        if ui.button("Create").clicked() {
+                            //Create group
+                        }
+                    });
+
+                    ui.heading("Join group");
+                    ui.horizontal(|ui| {
+                        ui.add_sized(
+                            (200., 20.),
+                            TextEdit::singleline(&mut self.join_group_input),
+                        );
+                        if ui.button("Join").clicked() {
+                            //Join group
+                        }
+                    });
                 });
             }
             FileStatus::Unselected => {

@@ -24,8 +24,17 @@ pub fn get_localdata() -> LocalData {
     if let Some(data) = load_from_disk(&path) {
         data
     } else {
-        write_to_disk(&path)
+        write_to_disk(&path, LocalData::default())
     }
+}
+
+pub fn set_username(username: String) {
+    let mut path = dirs::home_dir().expect("Unsupported os");
+    path.push(".filedropid");
+
+    let mut data = get_localdata();
+    data.username = username;
+    write_to_disk(&path, data);
 }
 
 fn load_from_disk(path: &PathBuf) -> Option<LocalData> {
@@ -33,8 +42,7 @@ fn load_from_disk(path: &PathBuf) -> Option<LocalData> {
     serde_json::from_str(&raw_data).ok()
 }
 
-fn write_to_disk(path: &PathBuf) -> LocalData {
-    let data = LocalData::default();
+fn write_to_disk(path: &PathBuf, data: LocalData) -> LocalData {
     fs::write(path, serde_json::to_string(&data).unwrap()).unwrap();
     data
 }
