@@ -29,6 +29,9 @@ async fn main() {
 
 async fn handle_message(data: &str) -> Result<()> {
     let data: EventData = serde_json::from_str(data)?;
+    if data.filename == "//PING" {
+        return Ok(());
+    }
 
     if ask_download(&data.filename, &data.groupname, &data.sender).await? {
         let response =

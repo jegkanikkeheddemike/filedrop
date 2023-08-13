@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
     let (sub_send, subscriber_recv) = channel::<Sender<Result<Event, Infallible>>>(1024);
 
     let state = ServerState {
-        event_send,
+        event_send: event_send.clone(),
         sub_send,
     };
 
@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
         .layer(DefaultBodyLimit::max(1_000_000_000)) // 1gb
         .with_state(state);
 
-    tokio::spawn(subscribe::event_respond(event_recieve, subscriber_recv));
+    tokio::spawn(subscribe::event_respond(event_recieve, event_send,subscriber_recv));
 
     axum::Server::bind(&"0.0.0.0:3987".parse()?)
         .serve(app.into_make_service())

@@ -1,4 +1,4 @@
-use std::{convert::Infallible, vec};
+use std::{convert::Infallible, time::Duration, vec};
 
 use axum::{
     extract::State,
@@ -7,6 +7,7 @@ use axum::{
 use filedrop_lib::EventData;
 use futures::{channel::mpsc::Sender, Stream};
 use tokio::sync::mpsc::Receiver;
+use uuid::Uuid;
 
 use crate::ServerState;
 
@@ -27,9 +28,27 @@ pub async fn subscribe(
 
 pub async fn event_respond(
     mut event_rx: Receiver<EventData>,
+    event_sx: tokio::sync::mpsc::Sender<EventData>,
     mut sub_rx: Receiver<Sender<Result<Event, Infallible>>>,
 ) {
     let mut subcribers = vec![];
+
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            //Ping
+            event_sx
+                .send(EventData {
+                    filename: "//PING".into(),
+                    file_id: Uuid::from_u128(0),
+                    groupname: "".into(),
+                    group_id: Uuid::from_u128(0),
+                    sender: "".into(),
+                })
+                .await
+                .unwrap();
+        }
+    });
 
     while let Some(event) = event_rx.recv().await {
         println!("{event:?}");
