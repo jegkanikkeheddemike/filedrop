@@ -86,6 +86,9 @@ pub async fn event_respond(
                 if let Some(sub) = subcribers.get_mut(&user_id) {
                     if sub.start_send(Ok(sse_event.clone())).is_err() {
                         subcribers.remove(&user_id);
+                        
+                        #[cfg(debug_assertions)]
+                        println!("Removed {user_id}");
                     }
                 }
             }
@@ -99,7 +102,7 @@ pub async fn event_respond(
             }
             for user_id in failed {
                 subcribers.remove(&user_id);
-                
+
                 #[cfg(debug_assertions)]
                 println!("Removed {user_id}");
             }
