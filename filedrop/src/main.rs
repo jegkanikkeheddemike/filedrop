@@ -53,10 +53,15 @@ enum FileStatus {
 }
 
 impl Application {
-    fn new(_cc: &CreationContext<'_>, file: Option<String>) -> Self {
+    fn new(cc: &CreationContext<'_>, file: Option<String>) -> Self {
         let status = Arc::new(Pinboard::new(FileStatus::LoadingMd));
         let groups = Arc::new(Pinboard::new(vec![]));
-        tokio::spawn(load_md(file, status.clone(), groups.clone()));
+        tokio::spawn(load_md(
+            file,
+            status.clone(),
+            groups.clone(),
+            cc.egui_ctx.clone(),
+        ));
         Self {
             status,
             groups,
@@ -134,6 +139,7 @@ impl eframe::App for Application {
                                 filename.clone(),
                                 self.status.clone(),
                                 self.groups.clone(),
+                                ui.ctx().clone(),
                             ));
                             self.create_group_input.clear();
                         }
@@ -152,6 +158,7 @@ impl eframe::App for Application {
                                 filename,
                                 self.status.clone(),
                                 self.groups.clone(),
+                                ui.ctx().clone(),
                             ));
                             self.join_group_input.clear();
                         }
@@ -205,7 +212,12 @@ impl eframe::App for Application {
                 let button = ui.add_sized((100., 40.), Button::new("retry"));
 
                 if button.clicked() {
-                    tokio::spawn(load_md(filename, self.status.clone(), self.groups.clone()));
+                    tokio::spawn(load_md(
+                        filename,
+                        self.status.clone(),
+                        self.groups.clone(),
+                        ui.ctx().clone(),
+                    ));
                     self.status.set(FileStatus::Sending);
                 }
                 ui.label(error);
@@ -269,6 +281,7 @@ async fn load_md(
     file: Option<String>,
     board: Arc<Pinboard<FileStatus>>,
     groups: Arc<Pinboard<Vec<Group>>>,
+    ctx: Context,
 ) {
     async fn load_inner(
         file: Option<String>,
@@ -294,6 +307,7 @@ async fn load_md(
     if let Err(err) = load_inner(file.clone(), &board, groups).await {
         board.set(FileStatus::FailedMd(file, err.to_string()))
     }
+    ctx.request_repaint();
 }
 
 async fn create_group(
@@ -301,6 +315,7 @@ async fn create_group(
     file: String,
     board: Arc<Pinboard<FileStatus>>,
     groups: Arc<Pinboard<Vec<Group>>>,
+    ctx: Context,
 ) {
     let form = CreateGroupForm {
         user_id: get_localdata().user_id,
@@ -314,12 +329,12 @@ async fn create_group(
         .body(serde_json::to_string(&form).unwrap())
         .send()
         .await;
-    dbg!(&res);
     if let Err(err) = res {
         board.set(FileStatus::Failed(file, err.to_string()))
     } else {
-        load_md(Some(file), board, groups).await;
+        load_md(Some(file), board, groups, ctx.clone()).await;
     }
+    ctx.request_repaint();
 }
 
 async fn join_group(
@@ -327,6 +342,7 @@ async fn join_group(
     file: String,
     board: Arc<Pinboard<FileStatus>>,
     groups: Arc<Pinboard<Vec<Group>>>,
+    ctx: Context,
 ) {
     let Result::Ok(group_id) = Uuid::from_str(&raw_id) else {
         board.set(FileStatus::Failed(file, "Failed to parse group id".into()));
@@ -338,16 +354,22 @@ async fn join_group(
         group_id,
     };
     board.set(FileStatus::LoadingMd);
-
-    if let Err(err) = reqwest::Client::new()
+    let res = reqwest::Client::new()
         .post("http://koebstoffer.info:3987/join")
         .header("Content-Type", "application/json")
         .body(serde_json::to_string(&form).unwrap())
         .send()
-        .await
-    {
-        board.set(FileStatus::Failed(file, err.to_string()))
-    } else {
-        load_md(Some(file), board, groups).await;
+        .await;
+
+    match res {
+        Err(err) => board.set(FileStatus::Failed(file, err.to_string())),
+        Result::Ok(status) => {
+            if status.status() == StatusCode::CONFLICT {
+                board.set(FileStatus::Failed(file, "Already in group".into()))
+            } else {
+                load_md(Some(file), board, groups, ctx.clone()).await;
+            }
+        }
     }
+    ctx.request_repaint();
 }

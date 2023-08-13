@@ -3,6 +3,7 @@ use std::{env, ops::Deref};
 use anyhow::{Ok, Result};
 use filedrop_lib::EventData;
 use notifier::ask_download;
+use notify_rust::Notification;
 use once_cell::sync::Lazy;
 use sse_client::EventSource;
 use tokio::fs;
@@ -17,6 +18,13 @@ async fn main() {
     let source = format!("{}subscribe", REMOTE_ADDR.deref());
     println!("Source: {source}");
     let event_source = EventSource::new(&source).unwrap();
+
+    event_source.on_open(|| {
+        Notification::new()
+            .summary("File drop daemon connected.")
+            .show()
+            .unwrap();
+    });
 
     for message in event_source.receiver().iter() {
         tokio::spawn(async move {
