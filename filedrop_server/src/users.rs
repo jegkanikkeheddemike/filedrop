@@ -34,7 +34,7 @@ pub async fn get_user(Path(user_id): Path<String>) -> Json<Vec<Group>> {
 pub async fn join_group(Json(form): Json<JoinGroupForm>) -> StatusCode {
     //Check if already exists
     if sqlx::query!(
-        "select user_id from group_members where group_id = $2 and user_id = $1",
+        "select user_id from group_members where group_id = $1 and user_id = $2",
         &form.group_id.to_string(),
         &form.user_id.to_string()
     )
