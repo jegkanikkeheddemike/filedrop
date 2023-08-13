@@ -51,7 +51,10 @@ pub async fn event_respond(
     });
 
     while let Some(event) = event_rx.recv().await {
-        println!("{event:?}");
+        if event.filename != "//PING" {
+            println!("{event:?}");
+        }
+        
 
         //Omdan til en SSE event
         let Ok(sse_event) = Event::default().json_data(event.clone()) else {
