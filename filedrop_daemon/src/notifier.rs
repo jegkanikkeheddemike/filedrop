@@ -10,7 +10,6 @@ pub async fn ask_download(filename: &str, group: &str, sender: &str) -> Result<b
             .summary(&format!("{sender} shared file with {group}"))
             .body(&format!("{filename}"))
             .action("download", "download")
-            //.icon("firefox")
             .show()?
             .wait_for_action(|action| match action {
                 "download" => sx.send(true).unwrap(),
@@ -20,12 +19,16 @@ pub async fn ask_download(filename: &str, group: &str, sender: &str) -> Result<b
                 }
             });
     }
-    #[cfg(not(target_os="linux"))] {
+    #[cfg(not(target_os = "linux"))]
+    {
+        //TODO
+        // Det her skal erstattes med
+        // https://docs.rs/winrt-toast/latest/winrt_toast/
+        // siden notify-rust ikke understøtter actions i windows
         Notification::new()
             .summary(&format!("{sender} shared file with {group}"))
             .body(&format!("{filename}"))
             .action("download", "download")
-            //.icon("firefox")
             .show()?;
         sx.send(true).unwrap();
     }
