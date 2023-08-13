@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::db;
 
 pub async fn get_user(Path(user_id): Path<String>) -> Json<Vec<Group>> {
+    println!("{user_id}");
     let groups = sqlx::query!(
         "
         select name, id from group_members 
