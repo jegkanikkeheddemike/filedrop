@@ -2,6 +2,7 @@ use std::convert::Infallible;
 
 use anyhow::{Ok, Result};
 use axum::{
+    extract::DefaultBodyLimit,
     response::sse::Event,
     routing::{get, post},
     Router,
@@ -42,6 +43,7 @@ async fn main() -> Result<()> {
         .route("/subscribe", get(subscribe::subscribe))
         .route("/get_md/:user_id", get(users::get_user))
         .nest_service("/download/", ServeDir::new("cache"))
+        .layer(DefaultBodyLimit::max(1_000_000_000)) // 1gb
         .with_state(state);
 
     tokio::spawn(subscribe::event_respond(event_recieve, subscriber_recv));
