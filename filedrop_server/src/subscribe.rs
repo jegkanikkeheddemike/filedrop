@@ -15,7 +15,6 @@ pub async fn subscribe(
     State(state): State<ServerState>,
     Path(user_id): Path<Uuid>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    println!("Success parsing path uuid: {user_id}");
     let (sender, receiver) = futures::channel::mpsc::channel(1024);
     state
         .sub_send
@@ -52,7 +51,7 @@ pub async fn event_respond(
 
     while let Some(event) = event_rx.recv().await {
         if event.filename != "//PING" {
-            println!("{event:?}");
+            println!("{event:#?}");
         }
 
         //Omdan til en SSE event
