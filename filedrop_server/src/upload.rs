@@ -5,7 +5,7 @@ use filedrop_lib::EventData;
 use tokio::fs;
 use uuid::Uuid;
 
-use crate::ServerState;
+use crate::{db, ServerState};
 
 pub async fn upload(State(state): State<ServerState>, mut multipart: Multipart) {
     let mut group_id = None;
@@ -38,10 +38,22 @@ pub async fn upload(State(state): State<ServerState>, mut multipart: Multipart) 
         if let Err(err) = fs::write(format!("./cache/{file_id}"), bytes).await {
             println!("Failed to save {filename}. {err}");
         }
+
+        //Find the groupname from the groupid
+        let groupname = sqlx::query!(
+            "select name from groups where id = $1",
+            &group_id.unwrap().to_string()
+        )
+        .fetch_one(db::get())
+        .await
+        .unwrap()
+        .name
+        .unwrap();
+
         let event_data = EventData {
             filename,
             file_id,
-            groupname: "Software".into(),
+            groupname,
             sender: sender.clone().unwrap(),
             group_id: group_id.unwrap(),
         };
