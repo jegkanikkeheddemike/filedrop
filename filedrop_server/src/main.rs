@@ -11,6 +11,7 @@ use filedrop_lib::EventData;
 use futures::channel::mpsc::Sender;
 use tokio::sync::mpsc::channel;
 use tower_http::services::ServeDir;
+use uuid::Uuid;
 
 mod db;
 mod subscribe;
@@ -31,7 +32,7 @@ async fn main() -> Result<()> {
     db::init().await;
 
     let (event_send, event_recieve) = channel::<EventData>(1024);
-    let (sub_send, subscriber_recv) = channel::<Sender<Result<Event, Infallible>>>(1024);
+    let (sub_send, subscriber_recv) = channel::<(Sender<Result<Event, Infallible>>,Uuid)>(1024);
 
     let state = ServerState {
         event_send: event_send.clone(),
@@ -40,16 +41,19 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/upload", post(upload::upload))
-        .route("/subscribe", get(subscribe::subscribe))
+        .route("/subscribe/:user_id", get(subscribe::subscribe))
         .route("/get_md/:user_id", get(users::get_user))
         .route("/create", post(users::create_group))
         .route("/join", post(users::join_group))
         .nest_service("/download/", ServeDir::new("cache"))
-
         .layer(DefaultBodyLimit::max(1_000_000_000)) // 1gb
         .with_state(state);
 
-    tokio::spawn(subscribe::event_respond(event_recieve, event_send,subscriber_recv));
+    tokio::spawn(subscribe::event_respond(
+        event_recieve,
+        event_send,
+        subscriber_recv,
+    ));
 
     axum::Server::bind(&"0.0.0.0:3987".parse()?)
         .serve(app.into_make_service())
@@ -60,5 +64,5 @@ async fn main() -> Result<()> {
 #[derive(Clone)]
 pub struct ServerState {
     event_send: tokio::sync::mpsc::Sender<EventData>,
-    sub_send: tokio::sync::mpsc::Sender<Sender<Result<Event, Infallible>>>,
+    sub_send: tokio::sync::mpsc::Sender<(Sender<Result<Event, Infallible>>, Uuid)>,
 }
