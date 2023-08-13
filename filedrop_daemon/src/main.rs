@@ -30,7 +30,7 @@ async fn main() {
 async fn handle_message(data: &str) -> Result<()> {
     let data: EventData = serde_json::from_str(data)?;
 
-    if ask_download(&data.filename, &data.group, &data.sender).await? {
+    if ask_download(&data.filename, &data.groupname, &data.sender).await? {
         let response =
             reqwest::get(format!("{}download/{}", REMOTE_ADDR.deref(), data.file_id)).await?;
         let mut filepath = dirs::download_dir().expect("unsupported os");

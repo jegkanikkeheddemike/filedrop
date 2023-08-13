@@ -1,6 +1,6 @@
 use anyhow::{Ok, Result};
 use eframe::{CreationContext, NativeOptions};
-use egui::{Button, CentralPanel};
+use egui::{Button, CentralPanel, ComboBox};
 use filedrop_lib::Group;
 use pinboard::Pinboard;
 use reqwest::{
@@ -32,6 +32,7 @@ async fn main() {
 struct Application {
     status: Arc<Pinboard<FileStatus>>,
     groups: Arc<Pinboard<Vec<Group>>>,
+    selected_group: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -50,7 +51,11 @@ impl Application {
         let status = Arc::new(Pinboard::new(FileStatus::LoadingMd));
         let groups = Arc::new(Pinboard::new(vec![]));
         tokio::spawn(load_md(file, status.clone(), groups.clone()));
-        Self { status, groups }
+        Self {
+            status,
+            groups,
+            selected_group: 0,
+        }
     }
 }
 
@@ -59,11 +64,27 @@ impl eframe::App for Application {
         CentralPanel::default().show(ctx, |ui| match self.status.read().unwrap() {
             FileStatus::Selected(filename) => {
                 ui.vertical_centered(|ui| {
-                    ui.heading(format!("Upload {filename}"));
+                    let short_name = filename.split('/').last().unwrap();
+                    ui.heading(format!("Upload {short_name}"));
+
+                    let groups = self.groups.read().unwrap();
+                    ui.add_space(10.);
+                    ComboBox::from_label("Group").show_index(
+                        ui,
+                        &mut self.selected_group,
+                        groups.len(),
+                        |i| &groups[i].name,
+                    );
+                    ui.add_space(10.);
+
                     let button = ui.add_sized((100., 40.), Button::new("upload"));
 
                     if button.clicked() {
-                        tokio::spawn(upload_file(filename.clone(), self.status.clone()));
+                        tokio::spawn(upload_file(
+                            filename.clone(),
+                            self.status.clone(),
+                            groups[self.selected_group].clone(),
+                        ));
                         self.status.set(FileStatus::Sending);
                     }
                 });
@@ -84,9 +105,9 @@ impl eframe::App for Application {
                 ui.vertical_centered(|ui| {
                     ui.heading("Failed");
                     let button = ui.add_sized((100., 40.), Button::new("retry"));
-
+                    let group = self.groups.read().unwrap()[self.selected_group].clone();
                     if button.clicked() {
-                        tokio::spawn(upload_file(filename.clone(), self.status.clone()));
+                        tokio::spawn(upload_file(filename.clone(), self.status.clone(), group));
                         self.status.set(FileStatus::Sending);
                     }
                     ui.label(error);
@@ -103,9 +124,7 @@ impl eframe::App for Application {
                     let button = ui.add_sized((100., 40.), Button::new("upload another"));
 
                     if button.clicked() {
-                        if let Some(file) = open_file_dialog("select file", "~", None) {
-                            self.status.set(FileStatus::Selected(file));
-                        }
+                        self.status.set(FileStatus::Unselected);
                     }
                 });
             }
@@ -128,10 +147,16 @@ impl eframe::App for Application {
     }
 }
 
-async fn upload_file(filename: String, board: Arc<Pinboard<FileStatus>>) {
-    async fn inner(filename: String) -> Result<()> {
+async fn upload_file(filename: String, board: Arc<Pinboard<FileStatus>>, group: Group) {
+    async fn inner(filename: String, group: Group) -> Result<()> {
         let bytes = std::fs::read(&filename)?;
-        let parts = Form::new().part("file", Part::bytes(bytes).file_name(filename));
+
+        let localdata = localdata::get_localdata();
+
+        let parts = Form::new()
+            .part("group_id", Part::text(group.id.to_string()))
+            .part("sender", Part::text(localdata.username))
+            .part("file", Part::bytes(bytes).file_name(filename));
 
         let response = reqwest::Client::new()
             .post("http://koebstoffer.info:3987/upload")
@@ -147,7 +172,7 @@ async fn upload_file(filename: String, board: Arc<Pinboard<FileStatus>>) {
         }
     }
 
-    if let Err(err) = inner(filename.clone()).await {
+    if let Err(err) = inner(filename.clone(), group).await {
         board.set(FileStatus::Failed(filename, err.to_string()))
     } else {
         board.set(FileStatus::Success)

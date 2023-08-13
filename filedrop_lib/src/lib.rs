@@ -4,7 +4,8 @@ use uuid::Uuid;
 pub struct EventData {
     pub filename: String,
     pub file_id: Uuid,
-    pub group: String,
+    pub groupname: String,
+    pub group_id: Uuid,
     pub sender: String,
 }
 

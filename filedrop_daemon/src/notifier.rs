@@ -6,13 +6,17 @@ pub async fn ask_download(filename: &str, group: &str, sender: &str) -> Result<b
     let (sx, rx) = oneshot::channel::<bool>();
 
     Notification::new()
-        .summary(&format!("\"{filename}\" shared with {group} by {sender}"))
+        .summary(&format!("{sender} shared file with {group}"))
+        .body(&format!("{filename}"))
         .action("download", "download")
-        .icon("firefox")
+        //.icon("firefox")
         .show()?
         .wait_for_action(|action| match action {
             "download" => sx.send(true).unwrap(),
-            _ => sx.send(false).unwrap(),
+            other => {
+                println!("action: {other}");
+                sx.send(false).unwrap()
+            }
         });
 
     Ok(rx.await?)
