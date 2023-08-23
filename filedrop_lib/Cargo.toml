@@ -9,6 +9,6 @@ edition = "2021"
 
 [dependencies]
 serde = { version = "*", features = ["derive"] }
-uuid = { version = "*", features = ["serde"] }
+uuid = { version = "*", features = ["serde", "v4"] }
 dirs = "*"
 serde_json = "*"

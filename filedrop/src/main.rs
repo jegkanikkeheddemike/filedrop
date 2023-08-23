@@ -235,12 +235,15 @@ async fn upload_file(
     async fn inner(filename: String, group: Group) -> Result<()> {
         let bytes = std::fs::read(&filename)?;
 
+        let short_filename = shorten_filename(filename);
+
+
         let localdata = get_localdata();
 
         let parts = Form::new()
             .part("group_id", Part::text(group.id.to_string()))
             .part("sender", Part::text(localdata.username))
-            .part("file", Part::bytes(bytes).file_name(filename));
+            .part("file", Part::bytes(bytes).file_name(short_filename));
 
         let response = reqwest::Client::new()
             .post("http://koebstoffer.info:3987/upload")
@@ -264,6 +267,17 @@ async fn upload_file(
     }
     ctx.request_repaint();
 }
+
+fn shorten_filename(filename: String) -> String {
+    #[cfg(target_os="windows")] {
+        filename.split("\\").last().unwrap().into()
+    }
+    #[cfg(not(target_os="windows"))] {
+        filename.split("/").last().unwrap().into()
+    
+    }
+}
+
 
 #[derive(Debug)]
 struct ResponseError {

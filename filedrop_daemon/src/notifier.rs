@@ -1,48 +1,86 @@
-use anyhow::{Ok, Result};
-use notify_rust::Notification;
-use tokio::sync::oneshot;
+use std::sync::mpsc;
 
-pub async fn ask_download(filename: &str, group: &str, sender: &str) -> Result<bool> {
-    #[cfg(target_os = "linux")]
-    {
-        let (sx, rx) = oneshot::channel::<bool>();
-        Notification::new()
-            .summary(&format!("{sender} shared file with {group}"))
-            .body(&format!("{filename}"))
-            .action("download", "download")
-            .show()?
-            .wait_for_action(|action| match action {
-                "download" => sx.send(true).unwrap(),
-                other => {
-                    println!("action: {other}");
-                    sx.send(false).unwrap()
-                }
-            });
-        Ok(rx.await?)
-    }
-    #[cfg(target_os = "windows")]
-    {
-        // TODO
-        // Det her skal erstattes med
-        // https://docs.rs/winrt-toast/latest/winrt_toast/
-        // siden notify-rust ikke understøtter actions i windows
-        Notification::new()
-            .summary(&format!("{sender} shared file with {group}"))
-            .body(&format!("{filename}"))
-            .action("download", "download")
-            .show()?;
-        Ok(true)
-    }
-    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
-    {
-        compile_error!("Unsupported os. Does not know how to handle notifications")
+use anyhow::{Ok, Result};
+use eframe::NativeOptions;
+use egui::CentralPanel;
+
+pub fn ask_download(filename: &str, group: &str, sender: &str) -> Result<bool> {
+    dbg!("Asking download: ", filename, group, sender);
+    let (sx, rx) = mpsc::channel::<bool>();
+    notif_sound();
+    non_native_popup(filename.into(), group.into(), sender.into(), sx);
+
+    Ok(rx.recv().unwrap())
+}
+
+fn notif_sound() {
+    use soloud::*;
+    let sl = Soloud::default().unwrap();
+    let mut wav = audio::Wav::default();
+    wav.load_mem(include_bytes!("../notif.mp3")).unwrap();
+    sl.play(&wav);
+    while sl.voice_count() > 0 {
+        std::thread::sleep(std::time::Duration::from_millis(100));
     }
 }
 
-#[tokio::test]
-async fn test_download() -> Result<()> {
-    let res = ask_download("filename", "group", "sender").await?;
+#[test]
+fn test_download() -> Result<()> {
+    let res = ask_download("filename", "group", "sender")?;
     println!("{res}");
 
     Ok(())
+}
+
+fn non_native_popup(filename: String, group: String, sender: String, sx1: mpsc::Sender<bool>) {
+    let native_options = NativeOptions {
+        initial_window_size: Some((200., 100.).into()),
+        initial_window_pos: Some((1920., 1080. / 2.).into()), //Virker ikke?
+        always_on_top: true,
+        resizable: false,
+        ..Default::default()
+    };
+    let sx = sx1.clone();
+    eframe::run_native(
+        &format!("{sender} shared a file with {group}"),
+        native_options,
+        Box::new(|_cc| {
+            Box::new(PopupApp {
+                filename,
+                group,
+                sender,
+                sx,
+            })
+        }),
+    )
+    .unwrap();
+    let _ = sx1.send(false);
+}
+
+struct PopupApp {
+    filename: String,
+    group: String,
+    sender: String,
+    sx: mpsc::Sender<bool>,
+}
+
+impl eframe::App for PopupApp {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        CentralPanel::default().show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.heading(&format!(
+                    "{} shared a file with {}",
+                    self.sender, self.group
+                ));
+                ui.label(&self.filename);
+                if ui.button("download").clicked() {
+                    let sx = self.sx.clone();
+
+                    sx.send(true).unwrap();
+
+                    frame.close();
+                }
+            });
+        });
+    }
 }

@@ -13,45 +13,73 @@ static REMOTE_ADDR: Lazy<String> = Lazy::new(|| {
     env::var("REMOTE_ADDR").unwrap_or_else(|_| "http://koebstoffer.info:3987/".into())
 });
 
-#[tokio::main]
-async fn main() {
-    let source = format!(
-        "{}subscribe/{}",
-        REMOTE_ADDR.deref(),
-        get_localdata().user_id
-    );
-    println!("Source: {source}");
-    let event_source = EventSource::new(&source).unwrap();
+fn main() {
+    let (msg_sx, msg_rx) = std::sync::mpsc::channel::<EventData>();
 
-    event_source.on_open(|| {
-        Notification::new()
-            .summary("File drop daemon connected.")
-            .show()
-            .unwrap();
+    std::thread::spawn(move || {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let source = format!(
+                    "{}subscribe/{}",
+                    REMOTE_ADDR.deref(),
+                    get_localdata().user_id
+                );
+                println!("Source: {source}");
+                let event_source = EventSource::new(&source).unwrap();
+
+                event_source.on_open(|| {
+                    Notification::new()
+                        .summary("File drop daemon connected.")
+                        .show()
+                        .unwrap();
+                });
+
+                for message in event_source.receiver().iter() {
+                    let res = serde_json::from_str(&message.data);
+                    let data = match res {
+                        Result::Ok(data) => data,
+                        Result::Err(err) => {
+                            dbg!("ERROR: ", err);
+                            continue;
+                        }
+                    };
+                    msg_sx.send(data).unwrap();
+                }
+            });
     });
 
-    for message in event_source.receiver().iter() {
-        tokio::spawn(async move {
-            if let Err(err) = handle_message(&message.data).await {
-                println!("\"{}\" error: {err}", message.type_);
-            }
-        });
+    loop {
+        let data = msg_rx.recv().unwrap();
+        if let Err(err) = handle_msg(data) {
+            dbg!("Err: ", err);
+        };
     }
 }
 
-async fn handle_message(data: &str) -> Result<()> {
-    let data: EventData = serde_json::from_str(data)?;
+fn handle_msg(data: EventData) -> Result<()> {
     if data.filename == "//PING" {
         return Ok(());
     }
+    dbg!(&data);
 
-    if ask_download(&data.filename, &data.groupname, &data.sender).await? {
-        let response =
-            reqwest::get(format!("{}download/{}", REMOTE_ADDR.deref(), data.file_id)).await?;
-        let mut filepath = dirs::download_dir().expect("unsupported os");
-        filepath.push(data.filename);
-        fs::write(&filepath, response.bytes().await?).await?;
-        println!("{:?}", open::that(filepath));
+    if ask_download(&data.filename, &data.groupname, &data.sender)? {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let response =
+                    reqwest::get(format!("{}download/{}", REMOTE_ADDR.deref(), data.file_id));
+                let mut filepath = dirs::download_dir().expect("unsupported os");
+                filepath.push(data.filename);
+                fs::write(&filepath, response.await.unwrap().bytes().await.unwrap())
+                    .await
+                    .unwrap();
+                println!("{:?}", open::that(filepath));
+            });
     }
 
     Ok(())
