@@ -34,7 +34,7 @@ fn test_download() -> Result<()> {
 
 fn non_native_popup(filename: String, group: String, sender: String, sx1: mpsc::Sender<bool>) {
     let native_options = NativeOptions {
-        initial_window_size: Some((200., 100.).into()),
+        initial_window_size: Some((200., 200.).into()),
         initial_window_pos: Some((1920., 1080. / 2.).into()), //Virker ikke?
         always_on_top: true,
         resizable: false,

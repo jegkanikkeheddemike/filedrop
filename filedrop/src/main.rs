@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use anyhow::{Ok, Result};
 use eframe::{CreationContext, NativeOptions};
 use egui::{Button, CentralPanel, ComboBox, Context, TextEdit};

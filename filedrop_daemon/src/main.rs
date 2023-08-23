@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 use std::{env, ops::Deref};
 
 use anyhow::{Ok, Result};
