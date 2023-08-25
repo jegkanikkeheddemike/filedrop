@@ -7,5 +7,6 @@ set mypath=%HOMEDRIVE%%HOMEPATH%\filedrop\
 echo %mypath%
 setx path /M "%PATH%%mypath%"
 copy .\startup_windows.bat "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\filedrop_daemon.bat"
+.\startup_windows.bat
 
 timeout /t 30
