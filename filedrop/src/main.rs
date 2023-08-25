@@ -275,7 +275,7 @@ fn shorten_filename(filename: String) -> String {
         filename.split("\\").last().unwrap().into()
     }
     #[cfg(not(target_os="windows"))] {
-        filename.split("/").last().unwrap().into()
+        filename.split('/').last().unwrap().into()
     
     }
 }
