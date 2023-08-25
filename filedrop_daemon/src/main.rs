@@ -67,6 +67,7 @@ fn handle_msg(data: EventData) -> Result<()> {
     dbg!(&data);
 
     if ask_download(&data.filename, &data.groupname, &data.sender)? {
+        //Holy shit det her er en absolute FORFÆRDELIGT løsning men whatever.
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
